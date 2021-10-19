@@ -1,27 +1,30 @@
 import { useState, useEffect, useRef } from 'react';
 
-const MOUNT = 'mount';
-const UNMOUNT = 'unmount';
+const MOUNT = 'MOUNT';
+const UNMOUNT = 'UNMOUNT';
 
 type TransitionType = typeof MOUNT | typeof UNMOUNT;
 
-interface MountControlProps {
-  children: React.ReactNode;
-  mount: boolean;
-  duration: number;
+export interface MountControlProps {
+  children?: React.ReactNode;
+  mount?: boolean;
+  timeout?: number;
   onMount?: () => void;
   onUnmount?: () => void;
-  onTransition?: (transitionType: TransitionType) => void;
+  onTransitionMount?: () => void;
+  onTransitionUnmount?: () => void;
 }
 
 export default function MountControl({
   children,
-  mount,
-  duration,
+  mount = false,
+  timeout = 0,
   onMount,
   onUnmount,
-  onTransition,
+  onTransitionMount,
+  onTransitionUnmount,
 }: MountControlProps) {
+  console.warn('RENDER');
   const timeoutID = useRef<NodeJS.Timeout | null>(null);
   const [transition, setTransition] = useState<TransitionType>(UNMOUNT);
 
@@ -31,25 +34,30 @@ export default function MountControl({
     } else {
       timeoutID.current = setTimeout(() => {
         setTransition(UNMOUNT);
-      }, duration);
+      }, timeout);
     }
 
     return () => {
-      if (timeoutID.current) {
+      if (timeoutID.current !== null) {
         clearTimeout(timeoutID.current);
+        timeoutID.current = null;
       }
     };
-  }, [duration, mount]);
+  }, [mount, timeout]);
 
   useEffect(() => {
-    // При монтировании компонента
-    if (mount || transition === MOUNT) onMount?.();
-    // При размонтировании компонента
+    if (mount && transition === UNMOUNT) onMount?.();
     if (!mount && transition === UNMOUNT) onUnmount?.();
-    // При запуске перехода (при монтировании или размонтировании компонента)
-    if (transition === MOUNT) onTransition?.(mount ? MOUNT : UNMOUNT);
+    if (mount && transition === MOUNT) onTransitionMount?.();
+    if (!mount && transition === MOUNT) onTransitionUnmount?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mount, transition]);
 
-  return mount || transition === MOUNT ? <>{children}</> : null;
+  return (
+    <>
+      {mount || transition === MOUNT ? <>{children}</> : null}
+
+      <pre>{JSON.stringify({ mount, transition }, null, 2)}</pre>
+    </>
+  );
 }
